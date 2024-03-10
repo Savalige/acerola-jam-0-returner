@@ -1,0 +1,48 @@
+title: HelloWorld
+---
+Hello World! To continue the dialogue, click with your mouse, press the space bar or the enter key.
+These are options. You can select one by clicking on it or pressing the corresponding number on your keyboard.
+-> Some cool option
+-> Some other cool option
+Now we'll jump to another node!
+<<jump AnotherNode>>
+
+===
+
+title: AnotherNode
+---
+Now, a character will talk. Notice how the upper left corner of the dialogue will show their name.
+Hohenheim: Hi, I'm Jan Hohenheim, creator of Yarn Spinner for Rust. I hope you enjoy using it!
+Let's set a condition. Do you prefer dogs or cats?
+-> Dogs
+    <<set $animal = "dog">>
+-> Cats
+    <<set $animal = "cats">>
+-> Turtles
+    I, uuuh... okay, why not.
+    <<set $animal = "turtles">>
+===
+
+title: FearLevel0
+---
+Aaaaaahhhhh
+-> Continue
+===
+
+title: HelloLevel0
+---
+Hello there, how are you?
+-> Continue
+===
+
+title: DespairLevel0
+---
+Noooo, stop it, what have we ever done to you?
+-> Continue
+===
+
+title: WhyLevel0
+---
+Dear god, why did you do this?
+-> Continue
+===

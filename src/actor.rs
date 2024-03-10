@@ -9,7 +9,8 @@ use bevy_entitiles::
 use bevy_xpbd_2d::prelude::*;
 use bevy_asepritesheet::prelude::*;
 use bevy_entitiles_derive::LdtkEntity;
-use seldom_state::prelude::*;
+use bevy_yarnspinner::prelude::*;
+use bevy_yarnspinner_example_dialogue_view::prelude::*;
 use crate::util::*;
 
 const PLAYER_SPEED: f32 = 100.;
@@ -20,9 +21,13 @@ impl Plugin for ActorPlugin {
    fn build(&self, app: &mut App) {
        app.add_plugins((
                 AsepritesheetPlugin::new(&["sprite.json"]).in_schedule(Update),
-                StateMachinePlugin,
+                YarnSpinnerPlugin::new(),
+                ExampleYarnSpinnerDialogueViewPlugin::new(),
             ))
-            .add_systems(Startup, setup)
+            .init_state::<DialougeState>()
+            .add_systems(Startup, (
+                setup,
+            ))
             .add_systems(
                 Update,
                 (
@@ -33,16 +38,50 @@ impl Plugin for ActorPlugin {
                     player_rotation,
                     attack_collisions,
                     follow,
-                    enemy_ai,
                     enemy_add_sprites,
                     idle,
                     follow,
                     flee,
+                    spawn_dialogue_runner.run_if(resource_added::<YarnProject>),
+                    enemy_hit,
+                    death,
                 ),
-            );
+            )
+            .add_event::<EnemyHit>();
     } 
 }
 
+fn spawn_dialogue_runner(
+    mut commands: Commands, 
+    project: Res<YarnProject>,
+    state: Res<State<DialougeState>>,
+) {
+    // Create a dialogue runner from the project.
+    // Immediately start showing the dialogue to the player
+    match state.get() {
+        DialougeState::Why => {
+            let mut dialogue_runner = project.create_dialogue_runner();
+            dialogue_runner.start_node("WhyLevel0");
+            commands.spawn(dialogue_runner);
+        },
+        DialougeState::Fear => {
+            let mut dialogue_runner = project.create_dialogue_runner();
+            dialogue_runner.start_node("FearLevel0");
+            commands.spawn(dialogue_runner);
+        },
+        DialougeState::Despair => {
+            let mut dialogue_runner = project.create_dialogue_runner();
+            dialogue_runner.start_node("DespaiLevel0");
+            commands.spawn(dialogue_runner);
+        },
+        DialougeState::Hello => {
+            let mut dialogue_runner = project.create_dialogue_runner();
+            dialogue_runner.start_node("HelloLevel0");
+            commands.spawn(dialogue_runner);
+        },
+        DialougeState::None => {},
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -91,7 +130,7 @@ fn setup(
 
     let attack_hitbox = commands
         .spawn((
-            Collider::rectangle(10., 17.),
+            Collider::rectangle(15., 27.),
             Transform::from_xyz(8., 0., 0.),
             PlayerAttackBox,
             Sensor,
@@ -169,7 +208,6 @@ fn enemy_add_sprites(
     assets: Res<AssetServer>
 ) {
     for enemy in enemy_q.iter() {
-        println!("FOUND");
         let sheet_handle = load_spritesheet_then(
             &mut commands,
             &assets,
@@ -193,74 +231,13 @@ fn enemy_add_sprites(
 
         commands.entity(enemy).add_child(anim);
         commands.entity(enemy).remove::<AddSprite>();
-        println!("Added sprite");
-    }
-}
-
-fn enemy_ai(
-    mut commands: Commands,
-    enemy_q: Query<Entity, (With<Enemy>, Without<StateMachine>)>,
-    player_q: Query<Entity, With<PlayerMover>>,
-) {
-    for enemy in enemy_q.iter() {
-        match player_q.get_single() {
-            Ok(player) => {
-
-                let near_player = move |In(entity): In<Entity>, transforms: Query<&Transform>, enemies: Query<&Enemy>| {
-                    let distance = transforms
-                        .get(player)
-                        .unwrap()
-                        .translation
-                        .truncate()
-                        .distance(transforms.get(entity).unwrap().translation.truncate());
-
-                    let fear = enemies.get(entity).unwrap().fear;
-
-                    // Check whether the target is within range. If it is, return `Ok` to trigger!
-                    match distance <= 60. && fear <= 10. {
-                        true => Ok(distance),
-                        false => Err(distance),
-                    }
-                };
-
-                let near_player_and_afraid = move |In(entity): In<Entity>, transforms: Query<&Transform>, enemies: Query<&Enemy>| {
-                    let distance = transforms
-                        .get(player)
-                        .unwrap()
-                        .translation
-                        .truncate()
-                        .distance(transforms.get(entity).unwrap().translation.truncate());
-                    
-                    let fear = enemies.get(entity).unwrap().fear;
-
-                    // Check whether the target is within range. If it is, return `Ok` to trigger!
-                    match distance <= 60. && fear >= 50. {
-                        true => Ok(distance),
-                        false => Err(distance),
-                    }
-                };
-
-                commands.entity(enemy).insert((
-                    StateMachine::default()
-                        .trans::<Idle, _>(near_player, Follow { target: player, speed: 15.})
-                        .trans::<Follow, _>(near_player.not(), Idle)
-                        .trans::<Idle, _>(near_player_and_afraid, Flee {target: player, speed: 15.})
-                        .trans::<Follow, _>(near_player_and_afraid, Flee {target: player, speed: 15.})
-                        .trans::<Flee, _>(near_player_and_afraid.not(), Idle),
-                    Idle,
-                ));
-            },
-            _ => {},
-        }
     }
 }
 
 fn attack_collisions(
     mut collision_event_reader: EventReader<Collision>,
-    mut enemies_q: Query<(Entity, &mut Enemy), With<EnemyHitBox>>,
-    mut player_q: Query<&mut Player>,
-    mut commands: Commands,
-    mut anim_q: Query<&mut SpriteAnimator, With<Enemy>>,
+    mut events: EventWriter<EnemyHit>,
+    enemies_q: Query<Entity, With<EnemyHitBox>>,
     input: Res<ButtonInput<MouseButton>>,
     player_entity_q: Query<Entity, With<PlayerAttackBox>>,
 ) {
@@ -269,31 +246,34 @@ fn attack_collisions(
             return;
         };
 
-        let Ok(mut player) = player_q.get_single_mut() else {
-            return;
-        };
-
         for Collision(contacts) in collision_event_reader.read() {
-            for (enemy_e, mut enemy) in enemies_q.iter_mut() {
+            for enemy_e in enemies_q.iter() {
                 if contacts.entity1 == player_e && contacts.entity2 == enemy_e {
-                    println!("Enemy hit");
-                    enemy.hp -= player.sword_skill;
-                    enemy.fear += player.sword_skill * 10.;
-                    player.sword_skill += 0.1;
-                    println!("PLAYER SWORD SKILL INCREASED: {}", player.sword_skill);
-
-                    match anim_q.get_single_mut() {
-                        Ok(mut anim) => {
-                            anim.set_anim_index(1);
-                        },
-                        _ => {},
-                    }
-
-                    if enemy.hp <= 0.0 {
-                        commands.entity(enemy_e).despawn();
-                    }
+                    events.send(EnemyHit { enemy:enemy_e, player: player_e });
                 }
             }
+        }
+    }
+}
+
+fn enemy_hit(
+    mut enemies: Query<(&mut Enemy, &Children)>,
+    mut players: Query<&mut Player>,
+    mut anims: Query<&mut SpriteAnimator, With<EnemySprite>>,
+    mut events: EventReader<EnemyHit>,
+) {
+    for event in events.read() {
+        let (mut enemy, children) = enemies.get_mut(event.enemy).unwrap();
+        let player = players.single_mut();
+
+        enemy.hp -= player.sword_skill;
+        enemy.fear += player.sword_skill * 10.;
+        //player.sword_skill += 0.1;
+        
+        println!("PLAYER SWORD SKILL INCREASED: {}", player.sword_skill);
+
+        for child in children {
+            anims.get_mut(*child).unwrap().set_anim_index(1);
         }
     }
 }
@@ -360,6 +340,7 @@ fn player_rotation(
 fn player_control(
     mut player_q: Query<&mut LinearVelocity, With<PlayerMover>>,
     mut anim_q: Query<&mut SpriteAnimator>,
+    mut next_state: ResMut<NextState<GameState>>,
     input: Res<ButtonInput<KeyCode>>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
@@ -389,6 +370,10 @@ fn player_control(
             }
         }
     }
+
+    if input.just_pressed(KeyCode::Escape) {
+        next_state.set(GameState::Paused);
+    }
 }
 
 
@@ -417,9 +402,14 @@ struct Flee {
     speed: f32,
 }
 
+#[derive(Clone, Component, Reflect)]
+#[component(storage = "SparseSet")]
+struct Dead;
+
 // Let's define some real behavior for entities in the follow task.
 fn follow(
     mut transforms: Query<&mut Transform>,
+    mut next_state: ResMut<NextState<DialougeState>>,
     mut anims: Query<&mut SpriteAnimator>,
     follows: Query<(Entity, &Follow, &Children), Without<Flee>>,
     time: Res<Time>,
@@ -441,6 +431,8 @@ fn follow(
         for child in children {
             anims.get_mut(*child).unwrap().set_anim_index(2);
         }
+
+        next_state.set(DialougeState::Hello);
     }
 }
 
@@ -451,6 +443,17 @@ fn idle(
     for children in &idles {
         for child in children {
             anims.get_mut(*child).unwrap().set_anim_index(0);
+        }
+    }
+}
+
+fn death(
+    mut anims: Query<&mut SpriteAnimator>,
+    idles: Query<&Children, (With<Enemy>, With<Dead>)>
+) {
+    for children in &idles {
+        for child in children {
+            anims.get_mut(*child).unwrap().set_anim_index(3);
         }
     }
 }
@@ -502,7 +505,7 @@ fn player_spawn(
 
 fn enemy_spawn(
     commands: &mut EntityCommands,
-    entity_instance: &EntityInstance,
+    _entity_instance: &EntityInstance,
     _fields: &HashMap<String, FieldInstance>,
     _asset_server: &AssetServer,
     _ldtk_assets: &LdtkAssets,
@@ -569,3 +572,28 @@ struct IdleTimer(Timer);
 
 #[derive(Component)]
 struct AddSprite;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
+enum DialougeState {
+    #[default]
+    None,
+    Fear,
+    Hello,
+    Despair,
+    Why,
+}
+
+#[derive(Event)]
+struct EnemyHit {
+    enemy: Entity,
+    player: Entity,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
+enum EnemyState {
+    #[default]
+    Idle,
+    Follow,
+    Flee,
+    Dead,
+}
