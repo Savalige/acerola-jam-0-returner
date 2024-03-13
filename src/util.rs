@@ -87,13 +87,3 @@ pub struct EnemyAttackBox;
 
 #[derive(Component)]
 pub struct EnemyHitBox;
-
-#[derive(Component, Default, Debug, Reflect)]
-#[reflect(Component)]
-pub enum EnemyState {
-    #[default]
-    Idle,
-    Follow,
-    Patrol,
-    Grunt,
-}

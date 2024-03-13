@@ -27,9 +27,9 @@ impl Plugin for MapPlugin {
             .add_systems(
                 Update,
                 (
-                    load,
                     events,
                     hot_reload,
+                    load.run_if(resource_added::<LdtkLevelManager>),
                 ),
             )
             .register_type::<Player>()
@@ -75,28 +75,11 @@ impl Plugin for MapPlugin {
 
 
 
-macro_rules! level_control {
-    ($key:ident, $level:expr, $input:expr, $manager:expr, $commands:expr) => {
-        if $input.pressed(KeyCode::ControlLeft) {
-            if $input.just_pressed(KeyCode::$key) {
-                $manager.unload(&mut $commands, $level.to_string());
-            }
-        } else if $input.just_pressed(KeyCode::$key) {
-            $manager.switch_to(&mut $commands, $level.to_string(), None);
-        }
-    };
-}
-
 pub fn load(
     mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
     mut manager: ResMut<LdtkLevelManager>,
 ) {
-    level_control!(Digit1, "Start", input, manager, commands);
-
-    if input.just_pressed(KeyCode::Space) {
-        manager.unload_all(&mut commands);
-    }
+    manager.load(&mut commands, "Start".to_string(), None);
 }
 
 pub fn hot_reload(

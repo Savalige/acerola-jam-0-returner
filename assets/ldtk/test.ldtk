@@ -11,7 +11,7 @@
 	"iid": "4af60160-b0a0-11ee-954b-f91fbf049184",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 107,
+	"nextUid": 109,
 	"identifierStyle": "Capitalize",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1907,6 +1907,43 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "compleation",
+					"doc": null,
+					"__type": "Float",
+					"uid": 108,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": false,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "Hidden",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
 				}
 			]
 		},
@@ -2091,6 +2128,43 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "name",
+					"doc": null,
+					"__type": "String",
+					"uid": 107,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "Hidden",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "StraightArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "OnlySame",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
 				}
 			]
 		}
@@ -2118,13 +2192,13 @@
 			}
 		},
 		{
-			"__cWid": 6,
+			"__cWid": 7,
 			"__cHei": 1,
 			"identifier": "Enemy",
 			"uid": 106,
 			"relPath": "../enemy.png",
 			"embedAtlas": null,
-			"pxWid": 96,
+			"pxWid": 112,
 			"pxHei": 16,
 			"tileGridSize": 16,
 			"spacing": 0,
@@ -2134,7 +2208,7 @@
 			"enumTags": [],
 			"customData": [],
 			"savedSelections": [],
-			"cachedPixelData": { "opaqueTiles": "000000", "averageColors": "43654b434365436543654365" }
+			"cachedPixelData": { "opaqueTiles": "0000000", "averageColors": "43654b4343654365436543654666" }
 		}
 	], "enums": [
 		{ "identifier": "ItemType", "uid": 11, "values": [
@@ -2293,7 +2367,7 @@
 						},
 						{
 							"__identifier": "Player",
-							"__grid": [8,7],
+							"__grid": [3,5],
 							"__pivot": [0.5,0.5],
 							"__tags": ["actor"],
 							"__tile": null,
@@ -2302,16 +2376,17 @@
 							"width": 16,
 							"height": 16,
 							"defUid": 61,
-							"px": [128,112],
+							"px": [48,80],
 							"fieldInstances": [
 								{ "__identifier": "HP", "__type": "Float", "__value": 100, "__tile": null, "defUid": 62, "realEditorValues": [] },
 								{ "__identifier": "MP", "__type": "Float", "__value": 100, "__tile": null, "defUid": 63, "realEditorValues": [] },
 								{ "__identifier": "inventory", "__type": "Array<LocalEnum.ItemType>", "__value": [], "__tile": null, "defUid": 72, "realEditorValues": [] },
 								{ "__identifier": "SwordSkill", "__type": "Float", "__value": 1, "__tile": null, "defUid": 80, "realEditorValues": [null] },
-								{ "__identifier": "RunSkill", "__type": "Float", "__value": 1, "__tile": null, "defUid": 81, "realEditorValues": [] }
+								{ "__identifier": "RunSkill", "__type": "Float", "__value": 1, "__tile": null, "defUid": 81, "realEditorValues": [] },
+								{ "__identifier": "compleation", "__type": "Float", "__value": 0, "__tile": null, "defUid": 108, "realEditorValues": [] }
 							],
-							"__worldX": 128,
-							"__worldY": 96
+							"__worldX": 48,
+							"__worldY": 64
 						},
 						{
 							"__identifier": "Item",
@@ -2433,7 +2508,11 @@
 								{ "__identifier": "HP", "__type": "Float", "__value": 10, "__tile": null, "defUid": 84, "realEditorValues": [] },
 								{ "__identifier": "inventory", "__type": "Array<LocalEnum.ItemType>", "__value": [], "__tile": null, "defUid": 85, "realEditorValues": [] },
 								{ "__identifier": "attack", "__type": "Float", "__value": 1, "__tile": null, "defUid": 86, "realEditorValues": [] },
-								{ "__identifier": "fear", "__type": "Float", "__value": 30, "__tile": null, "defUid": 105, "realEditorValues": [] }
+								{ "__identifier": "fear", "__type": "Float", "__value": 30, "__tile": null, "defUid": 105, "realEditorValues": [] },
+								{ "__identifier": "name", "__type": "String", "__value": "Bob", "__tile": null, "defUid": 107, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Bob"]
+								}] }
 							],
 							"__worldX": 200,
 							"__worldY": 56
@@ -2454,7 +2533,11 @@
 								{ "__identifier": "HP", "__type": "Float", "__value": 10, "__tile": null, "defUid": 84, "realEditorValues": [] },
 								{ "__identifier": "inventory", "__type": "Array<LocalEnum.ItemType>", "__value": [], "__tile": null, "defUid": 85, "realEditorValues": [] },
 								{ "__identifier": "attack", "__type": "Float", "__value": 1, "__tile": null, "defUid": 86, "realEditorValues": [] },
-								{ "__identifier": "fear", "__type": "Float", "__value": 10, "__tile": null, "defUid": 105, "realEditorValues": [{ "id": "V_Float", "params": [10] }] }
+								{ "__identifier": "fear", "__type": "Float", "__value": 10, "__tile": null, "defUid": 105, "realEditorValues": [{ "id": "V_Float", "params": [10] }] },
+								{ "__identifier": "name", "__type": "String", "__value": "Rick", "__tile": null, "defUid": 107, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Rick"]
+								}] }
 							],
 							"__worldX": 216,
 							"__worldY": 88

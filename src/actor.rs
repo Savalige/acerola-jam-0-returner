@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::system::EntityCommands, prelude::*, utils::HashMap, transform::components::Transform, reflect::Reflect,
+    ecs::{entity, system::EntityCommands}, prelude::*, reflect::Reflect, transform::components::Transform, utils::HashMap
 };
 use bevy_entitiles::
     ldtk::{
@@ -9,11 +9,13 @@ use bevy_entitiles::
 use bevy_xpbd_2d::prelude::*;
 use bevy_asepritesheet::prelude::*;
 use bevy_entitiles_derive::LdtkEntity;
+use seldom_state::prelude::*;
 use bevy_yarnspinner::prelude::*;
 use bevy_yarnspinner_example_dialogue_view::prelude::*;
 use crate::util::*;
 
 const PLAYER_SPEED: f32 = 100.;
+const ENEMY_AGRO: f32 = 60.;
 
 pub struct ActorPlugin;
 
@@ -21,10 +23,10 @@ impl Plugin for ActorPlugin {
    fn build(&self, app: &mut App) {
        app.add_plugins((
                 AsepritesheetPlugin::new(&["sprite.json"]).in_schedule(Update),
+                StateMachinePlugin,
                 YarnSpinnerPlugin::new(),
                 ExampleYarnSpinnerDialogueViewPlugin::new(),
             ))
-            .init_state::<DialougeState>()
             .add_systems(Startup, (
                 setup,
             ))
@@ -38,49 +40,22 @@ impl Plugin for ActorPlugin {
                     player_rotation,
                     attack_collisions,
                     follow,
+                    text_setup.run_if(resource_added::<YarnProject>),
+                    enemy_ai,
                     enemy_add_sprites,
+                    enemy_say_flee.run_if(resource_exists::<YarnProject>),
+                    enemy_say_follow.run_if(resource_exists::<YarnProject>),
                     idle,
                     follow,
                     flee,
-                    spawn_dialogue_runner.run_if(resource_added::<YarnProject>),
                     enemy_hit,
                     death,
+                    just_died,
+                    hit,
                 ),
             )
             .add_event::<EnemyHit>();
     } 
-}
-
-fn spawn_dialogue_runner(
-    mut commands: Commands, 
-    project: Res<YarnProject>,
-    state: Res<State<DialougeState>>,
-) {
-    // Create a dialogue runner from the project.
-    // Immediately start showing the dialogue to the player
-    match state.get() {
-        DialougeState::Why => {
-            let mut dialogue_runner = project.create_dialogue_runner();
-            dialogue_runner.start_node("WhyLevel0");
-            commands.spawn(dialogue_runner);
-        },
-        DialougeState::Fear => {
-            let mut dialogue_runner = project.create_dialogue_runner();
-            dialogue_runner.start_node("FearLevel0");
-            commands.spawn(dialogue_runner);
-        },
-        DialougeState::Despair => {
-            let mut dialogue_runner = project.create_dialogue_runner();
-            dialogue_runner.start_node("DespaiLevel0");
-            commands.spawn(dialogue_runner);
-        },
-        DialougeState::Hello => {
-            let mut dialogue_runner = project.create_dialogue_runner();
-            dialogue_runner.start_node("HelloLevel0");
-            commands.spawn(dialogue_runner);
-        },
-        DialougeState::None => {},
-    }
 }
 
 fn setup(
@@ -96,7 +71,7 @@ fn setup(
         "sprite.json",
         bevy::sprite::Anchor::Center,
         |sheet| {
-            println!("Spritesheet finished loading!");
+            info!("Spritesheet finished loading!");
             format_anims_attack(sheet);
         },
     );
@@ -114,7 +89,7 @@ fn setup(
         "character.json",
         bevy::sprite::Anchor::Center,
         |sheet| {
-            println!("Spritesheet finished loading!");
+            info!("Spritesheet finished loading!");
             format_anims_player(sheet);
         },
     );
@@ -186,9 +161,7 @@ fn extra_player_setup(
         (Entity, &mut Transform),
         (With<Camera2d>, Without<PlayerMover>, Without<Player>),
     >,
-    mut player_q: Query<(Entity, &mut Transform), With<Player>>, // TODO fix it does not have a
-    // transform without the sprite
-) {
+    mut player_q: Query<(Entity, &mut Transform), With<Player>>, ) {
     for (camera, mut camera_t) in camera_q.iter_mut() {
         let Ok((player, mut player_t)) = player_q.get_single_mut() else {
             return;
@@ -208,13 +181,14 @@ fn enemy_add_sprites(
     assets: Res<AssetServer>
 ) {
     for enemy in enemy_q.iter() {
+        println!("EHRE");
         let sheet_handle = load_spritesheet_then(
             &mut commands,
             &assets,
             "enemy.json",
             bevy::sprite::Anchor::Center,
             |sheet| {
-                println!("Spritesheet finished loading!");
+                info!("Spritesheet finished loading!");
                 format_anims_player(sheet);
             },
         );
@@ -234,10 +208,163 @@ fn enemy_add_sprites(
     }
 }
 
+fn enemy_ai(
+    mut commands: Commands,
+    enemy_q: Query<Entity, (With<Enemy>, Without<StateMachine>)>,
+    player_q: Query<Entity, With<PlayerMover>>,
+) {
+    for enemy in enemy_q.iter() {
+        match player_q.get_single() {
+            Ok(player) => {
+
+                let near_player = move |In(entity): In<Entity>, transforms: Query<&Transform>, enemies: Query<&Enemy>| {
+                    let distance = transforms
+                        .get(player)
+                        .unwrap()
+                        .translation
+                        .truncate()
+                        .distance(transforms.get(entity).unwrap().translation.truncate());
+
+                    let fear = enemies.get(entity).unwrap().fear;
+
+                    // Check whether the target is within range. If it is, return `Ok` to trigger!
+                    match distance <= ENEMY_AGRO && fear <= 10. {
+                        true => Ok(distance),
+                        false => Err(distance),
+                    }
+                };
+
+                let near_player_and_afraid = move |In(entity): In<Entity>, transforms: Query<&Transform>, enemies: Query<&Enemy>| {
+                    let distance = transforms
+                        .get(player)
+                        .unwrap()
+                        .translation
+                        .truncate()
+                        .distance(transforms.get(entity).unwrap().translation.truncate());
+                    
+                    let fear = enemies.get(entity).unwrap().fear;
+
+                    // Check whether the target is within range. If it is, return `Ok` to trigger!
+                    match distance <= ENEMY_AGRO && fear >= 50. {
+                        true => Ok(distance),
+                        false => Err(distance),
+                    }
+                };
+
+                let dead = move |In(entity): In<Entity>, enemies: Query<&Enemy>| {
+                    let health = enemies.get(entity).unwrap().hp;
+
+                    // Check whether the target is within range. If it is, return `Ok` to trigger!
+                    match health <= 0. {
+                        true =>  Ok(health),
+                        false => Err(health),
+                    }
+                };
+
+                commands.entity(enemy).insert((
+                    StateMachine::default()
+                        .trans::<Idle, _>(near_player, Follow { target: player, speed: 15.})
+                        .trans::<Follow, _>(near_player.not(), Idle)
+                        .trans::<Idle, _>(near_player_and_afraid, Flee {target: player, speed: 25.})
+                        .trans::<Follow, _>(near_player_and_afraid, Flee {target: player, speed: 25.})
+                        .trans::<Flee, _>(near_player_and_afraid.not(), Idle)
+                        .trans::<Flee, _>(dead, Dead)
+                        .trans::<Idle, _>(dead, Dead)
+                        .trans::<Follow, _>(dead, Dead)
+                        .on_enter::<Follow>(move |entity| { entity.insert(FollowDialogueTimer::default()); })
+                        .on_enter::<Flee>(move |entity| { entity.insert(FleeDialogueTimer::default()); })
+                        .on_enter::<Dead>(move |entity| { entity.insert(JustDied); })
+                    ,
+                    Idle,
+                ));
+            },
+            _ => {},
+        }
+    }
+}
+
+fn text_setup(project: Res<YarnProject>, mut commands: Commands) {
+    let mut dialogue_runner = project.create_dialogue_runner();
+    dialogue_runner.start_node("Init");
+    commands.spawn(dialogue_runner);
+}
+
+fn enemy_say_follow(
+    mut commands: Commands,
+    mut follow_timer: Query<(Entity, &mut FollowDialogueTimer)>,
+    mut dialogue_runner: Query<&mut DialogueRunner>,
+    time: Res<Time>,
+    enemies: Query<&Enemy>,
+    player: Query<&Player>,
+) {
+    for (entity, mut timer) in follow_timer.iter_mut() {
+        timer.0.tick(time.delta());
+
+        if timer.0.just_finished() {
+            let mut dr = dialogue_runner.single_mut();
+            let _ = dr.variable_storage_mut().set("$name".to_string(), YarnValue::String(enemies.get(entity).unwrap().name.clone()));
+            let level = (player.single().compleation / 25.).floor() as i8;
+
+            match dr.current_node() {
+                Some(_) => {
+                    dr.stop();
+                },
+                None => {},
+            }
+            
+            dr.start_node("HelloLevel".to_owned() + &level.to_string());
+
+            commands.entity(entity).remove::<FollowDialogueTimer>();
+        }
+    }
+}
+
+fn enemy_say_flee(
+    mut commands: Commands,
+    mut flee_timer: Query<(Entity, &mut FleeDialogueTimer)>,
+    mut dialogue_runner: Query<&mut DialogueRunner>,
+    time: Res<Time>,
+    enemies: Query<&Enemy>,
+    player: Query<&Player>,
+) {
+    for (entity, mut timer) in flee_timer.iter_mut() {
+        timer.0.tick(time.delta());
+
+        if timer.0.just_finished() {
+            let mut dr = dialogue_runner.single_mut();
+            let _ = dr.variable_storage_mut().set("$name".to_string(), YarnValue::String(enemies.get(entity).unwrap().name.clone()));
+            let level = (player.single().compleation / 25.).floor() as i8;
+
+            match dr.current_node() {
+                Some(_) => {
+                    dr.stop();
+                },
+                None => {
+                },
+            }
+
+            dr.start_node("WhyLevel".to_owned() + &level.to_string());
+
+            commands.entity(entity).remove::<FleeDialogueTimer>();
+        }
+    }
+}
+
+fn just_died(
+    mut commands: Commands,
+    mut player: Query<&mut Player>,
+    dead: Query<Entity, With<JustDied>>,
+) {
+    for entity in dead.iter() {
+        player.single_mut().compleation += 1.;
+        commands.entity(entity).remove::<JustDied>();
+    }
+}
+
 fn attack_collisions(
     mut collision_event_reader: EventReader<Collision>,
     mut events: EventWriter<EnemyHit>,
-    enemies_q: Query<Entity, With<EnemyHitBox>>,
+    enemies_q: Query<Entity, (With<EnemyHitBox>, Without<Dead>)>,
     input: Res<ButtonInput<MouseButton>>,
     player_entity_q: Query<Entity, With<PlayerAttackBox>>,
 ) {
@@ -248,8 +375,9 @@ fn attack_collisions(
 
         for Collision(contacts) in collision_event_reader.read() {
             for enemy_e in enemies_q.iter() {
-                if contacts.entity1 == player_e && contacts.entity2 == enemy_e {
-                    events.send(EnemyHit { enemy:enemy_e, player: player_e });
+                if (contacts.entity1 == player_e && contacts.entity2 == enemy_e) ||
+                    (contacts.entity2 == player_e && contacts.entity1 == enemy_e) {
+                    events.send(EnemyHit { enemy:enemy_e });
                 }
             }
         }
@@ -259,8 +387,8 @@ fn attack_collisions(
 fn enemy_hit(
     mut enemies: Query<(&mut Enemy, &Children)>,
     mut players: Query<&mut Player>,
-    mut anims: Query<&mut SpriteAnimator, With<EnemySprite>>,
     mut events: EventReader<EnemyHit>,
+    mut commands: Commands,
 ) {
     for event in events.read() {
         let (mut enemy, children) = enemies.get_mut(event.enemy).unwrap();
@@ -270,10 +398,9 @@ fn enemy_hit(
         enemy.fear += player.sword_skill * 10.;
         //player.sword_skill += 0.1;
         
-        println!("PLAYER SWORD SKILL INCREASED: {}", player.sword_skill);
-
         for child in children {
-            anims.get_mut(*child).unwrap().set_anim_index(1);
+            commands.entity(*child).remove::<HitTimer>();
+            commands.entity(*child).insert(HitTimer::default());
         }
     }
 }
@@ -409,9 +536,9 @@ struct Dead;
 // Let's define some real behavior for entities in the follow task.
 fn follow(
     mut transforms: Query<&mut Transform>,
-    mut next_state: ResMut<NextState<DialougeState>>,
     mut anims: Query<&mut SpriteAnimator>,
     follows: Query<(Entity, &Follow, &Children), Without<Flee>>,
+    timers: Query<Entity, With<HitTimer>>,
     time: Res<Time>,
 ) {
     for (entity, follow, children) in &follows {
@@ -429,20 +556,37 @@ fn follow(
             * time.delta_seconds();
         
         for child in children {
-            anims.get_mut(*child).unwrap().set_anim_index(2);
+            match timers.get(*child) {
+                Ok(timer) => {
+                    if *child != timer {
+                        anims.get_mut(*child).unwrap().set_anim_index(2);
+                    }
+                },
+                Err(_) => {
+                    anims.get_mut(*child).unwrap().set_anim_index(2);
+                },
+            }
         }
-
-        next_state.set(DialougeState::Hello);
     }
 }
 
 fn idle(
     mut anims: Query<&mut SpriteAnimator>,
-    idles: Query<&Children, (With<Enemy>, With<Idle>)>
+    idles: Query<&Children, (With<Enemy>, With<Idle>)>,
+    timers: Query<Entity, With<HitTimer>>,
 ) {
     for children in &idles {
         for child in children {
-            anims.get_mut(*child).unwrap().set_anim_index(0);
+            match timers.get(*child) {
+                Ok(timer) => {
+                    if *child != timer {
+                        anims.get_mut(*child).unwrap().set_anim_index(0);
+                    }
+                },
+                Err(_) => {
+                    anims.get_mut(*child).unwrap().set_anim_index(0);
+                },
+            }
         }
     }
 }
@@ -463,6 +607,7 @@ fn flee(
     mut transforms: Query<&mut Transform>,
     mut anims: Query<&mut SpriteAnimator>,
     follows: Query<(Entity, &Flee, &Children)>,
+    timers: Query<Entity, With<HitTimer>>,
     time: Res<Time>,
 ) {
     for (entity, follow, children) in &follows {
@@ -480,7 +625,36 @@ fn flee(
             * time.delta_seconds();
         
         for child in children {
-            anims.get_mut(*child).unwrap().set_anim_index(2);
+            match timers.get(*child) {
+                Ok(timer) => {
+                    if *child != timer {
+                        anims.get_mut(*child).unwrap().set_anim_index(2);
+                    }
+                },
+                Err(_) => {
+                    anims.get_mut(*child).unwrap().set_anim_index(2);
+                },
+            }
+        }
+    }
+}
+
+fn hit(
+    mut commands: Commands,
+    mut timer: Query<(Entity, &mut HitTimer)>,
+    mut anims: Query<&mut SpriteAnimator>,
+    time: Res<Time>,
+) {
+    for (entity, mut timer) in timer.iter_mut() {
+        if timer.0.elapsed().is_zero()  {
+            anims.get_mut(entity).unwrap().set_anim_index(1);
+        }
+
+        timer.0.tick(time.delta());
+
+        if timer.0.just_finished() {
+            anims.get_mut(entity).unwrap().stop_anim();
+            commands.entity(entity).remove::<HitTimer>();
         }
     }
 }
@@ -553,6 +727,7 @@ pub struct Player {
     pub sword_skill: f32,
     #[ldtk_name = "RunSkill"]
     pub run_skill: f32,
+    pub compleation: f32,
 }
 
 #[derive(Component, LdtkEntity, Default, Reflect)]
@@ -565,6 +740,7 @@ pub struct Enemy {
     pub hp: f32,
     pub attack: f32,
     pub fear: f32,
+    pub name: String,
 }
 
 #[derive(Resource)]
@@ -573,27 +749,58 @@ struct IdleTimer(Timer);
 #[derive(Component)]
 struct AddSprite;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
-enum DialougeState {
-    #[default]
-    None,
-    Fear,
-    Hello,
-    Despair,
-    Why,
-}
-
 #[derive(Event)]
 struct EnemyHit {
     enemy: Entity,
-    player: Entity,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
-enum EnemyState {
-    #[default]
-    Idle,
-    Follow,
-    Flee,
-    Dead,
+#[derive(Component)]
+struct JustDied;
+
+#[derive(Component)]
+struct FollowDialogueTimer(Timer);
+
+impl FollowDialogueTimer {
+    pub fn new() -> Self {
+        Self(Timer::from_seconds(0.5, TimerMode::Once))
+    }
+}
+
+impl Default for FollowDialogueTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+    
+}
+
+#[derive(Component)]
+struct FleeDialogueTimer(Timer);
+
+impl FleeDialogueTimer {
+    pub fn new() -> Self {
+        Self(Timer::from_seconds(1., TimerMode::Once))
+    }
+}
+
+impl Default for FleeDialogueTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+    
+}
+
+#[derive(Component)]
+struct HitTimer(Timer);
+
+impl HitTimer {
+    pub fn new() -> Self {
+        Self(Timer::from_seconds(0.3, TimerMode::Once))
+    }
+}
+
+impl Default for HitTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+    
 }

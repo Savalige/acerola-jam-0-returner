@@ -1,48 +1,108 @@
-title: HelloWorld
+title: Init
 ---
-Hello World! To continue the dialogue, click with your mouse, press the space bar or the enter key.
-These are options. You can select one by clicking on it or pressing the corresponding number on your keyboard.
--> Some cool option
--> Some other cool option
-Now we'll jump to another node!
-<<jump AnotherNode>>
-
+<<declare $name = "">>
+<<declare $player = "">>
+{$player}: I need to kill ???
+-> Continue
 ===
 
-title: AnotherNode
+title: Reset
 ---
-Now, a character will talk. Notice how the upper left corner of the dialogue will show their name.
-Hohenheim: Hi, I'm Jan Hohenheim, creator of Yarn Spinner for Rust. I hope you enjoy using it!
-Let's set a condition. Do you prefer dogs or cats?
--> Dogs
-    <<set $animal = "dog">>
--> Cats
-    <<set $animal = "cats">>
--> Turtles
-    I, uuuh... okay, why not.
-    <<set $animal = "turtles">>
+{$player}: I need to grow stronger
 ===
 
 title: FearLevel0
 ---
-Aaaaaahhhhh
+{$name}: ¤¤¤¤¤¤¤¤¤¤¤
+-> Continue
+===
+
+title: FearLevel1
+---
+{$name}: ¤¤¤a¤a¤h¤h¤
+-> Continue
+===
+
+title: FearLevel2
+---
+{$name}: ¤aaaa¤¤hhhh
+-> Continue
+===
+
+title: FearLevel3
+---
+{$name}: Aaaaaahhhhh
 -> Continue
 ===
 
 title: HelloLevel0
 ---
-Hello there, how are you?
+{$name}: ¤¤¤¤¤ ¤¤¤¤¤¤ ¤¤¤ ¤¤¤ ¤¤¤¤
+-> Continue
+===
+
+title: HelloLevel1
+---
+{$name}: ¤¤¤¤¤ ¤¤e¤¤, ¤o¤ ¤¤e ¤o¤¤
+-> Continue
+===
+
+title: HelloLevel2
+---
+{$name}: ¤¤l¤o ¤¤ere, ¤ow ¤re ¤ou?
+-> Continue
+===
+
+title: HelloLevel3
+---
+{$name}: Hello there, how are you?
 -> Continue
 ===
 
 title: DespairLevel0
 ---
-Noooo, stop it, what have we ever done to you?
+{$name}: ¤¤¤¤¤¤ ¤¤¤¤ ¤¤¤ ¤¤¤¤ ¤¤¤¤ ¤¤ ¤¤¤¤ ¤¤¤¤ ¤¤ ¤¤¤¤
+-> Continue
+===
+
+title: DespairLevel1
+---
+{$name}: ¤¤¤¤¤, ¤¤¤¤ ¤¤, ¤¤a¤ ¤a¤¤ ¤¤ ¤¤¤r ¤o¤¤ ¤¤ ¤o¤¤
+-> Continue
+===
+
+title: DespairLevel2
+---
+{$name}: ¤¤oo¤, ¤¤o¤ ¤¤, ¤ha¤ ¤a¤e ¤e ¤¤er ¤on¤ ¤o ¤o¤?
+-> Continue
+===
+
+title: DespairLevel3
+---
+{$name}: Noooo, stop it, what have we ever done to you?
 -> Continue
 ===
 
 title: WhyLevel0
 ---
-Dear god, why did you do this?
+{$name}: ¤¤¤¤ ¤¤¤¤ ¤¤¤ ¤¤¤ ¤¤¤ ¤¤¤¤¤ ¤¤¤¤¤
+-> Continue
+===
+
+title: WhyLevel1
+---
+{$name}: ¤¤¤¤ ¤¤¤, w¤¤ ¤¤e ¤o¤ ¤¤i¤¤ ¤h¤¤¤
+-> Continue
+===
+
+title: WhyLevel2
+---
+{$name}: ¤ea¤ ¤od, w¤¤ ¤¤e ¤o¤ ¤oi¤¤ ¤h¤s¤
+-> Continue
+===
+
+title: WhyLevel3
+---
+{$name}: Dear god, why are you doing this?
 -> Continue
 ===
