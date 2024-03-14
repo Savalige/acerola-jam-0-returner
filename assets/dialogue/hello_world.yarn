@@ -9,6 +9,15 @@ title: Init
 title: Reset
 ---
 {$player}: I need to grow stronger
+-> Continue
+(Press R)
+-> Continue
+===
+
+title: End
+---
+{$player}: I have become death.
+-> Continue
 ===
 
 title: FearLevel0

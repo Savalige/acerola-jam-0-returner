@@ -92,7 +92,7 @@ pub fn hot_reload(
     mut entity_material_assets: ResMut<Assets<LdtkEntityMaterial>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
-    if input.just_pressed(KeyCode::Enter) {
+    if input.just_pressed(KeyCode::KeyR) {
         manager.reload_json(&config);
         assets.initialize(
             &config,

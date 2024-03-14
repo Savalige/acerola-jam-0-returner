@@ -6,17 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.13.0", features = ["dynamic_linking"] }
-bevy-inspector-egui = "0.23.3"
+bevy = { version = "0.13.0" }
 bevy_aseprite = "0.12.0"
 bevy_asepritesheet = "0.6.0"
 bevy_entitiles = { version = "0.6.1", features = ["algorithm", "debug", "ldtk", "physics"] }
 bevy_entitiles_derive = "0.4.0"
-bevy_screen_diagnostics = "0.5.0"
 bevy_xpbd_2d = "0.4.2"
 bevy_yarnspinner = "0.2.0"
 bevy_yarnspinner_example_dialogue_view = "0.2.1"
-futures-lite = "2.2.0"
 seldom_state = "0.10.0"
 
 # Enable a small amount of optimization in debug mode
@@ -26,3 +23,6 @@ opt-level = 1
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"

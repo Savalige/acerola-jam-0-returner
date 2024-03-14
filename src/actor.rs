@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::{entity, system::EntityCommands}, prelude::*, reflect::Reflect, transform::components::Transform, utils::HashMap
+    ecs::{system::EntityCommands}, prelude::*, reflect::Reflect, transform::components::Transform, utils::HashMap
 };
 use bevy_entitiles::
     ldtk::{
@@ -12,7 +12,9 @@ use bevy_entitiles_derive::LdtkEntity;
 use seldom_state::prelude::*;
 use bevy_yarnspinner::prelude::*;
 use bevy_yarnspinner_example_dialogue_view::prelude::*;
+use bevy::app::AppExit;
 use crate::util::*;
+use bevy_entitiles::ldtk::resources::LdtkLevelManager;
 
 const PLAYER_SPEED: f32 = 100.;
 const ENEMY_AGRO: f32 = 60.;
@@ -52,8 +54,10 @@ impl Plugin for ActorPlugin {
                     death,
                     just_died,
                     hit,
+                    end,
                 ),
             )
+            .add_systems(Update, reload)
             .add_event::<EnemyHit>();
     } 
 }
@@ -181,7 +185,6 @@ fn enemy_add_sprites(
     assets: Res<AssetServer>
 ) {
     for enemy in enemy_q.iter() {
-        println!("EHRE");
         let sheet_handle = load_spritesheet_then(
             &mut commands,
             &assets,
@@ -353,13 +356,67 @@ fn enemy_say_flee(
 fn just_died(
     mut commands: Commands,
     mut player: Query<&mut Player>,
+    mut dialogue_runner: Query<&mut DialogueRunner>,
     dead: Query<Entity, With<JustDied>>,
+    enemies: Query<Entity, (With<Enemy>, Without<Dead>)>,
 ) {
     for entity in dead.iter() {
-        player.single_mut().compleation += 1.;
+        player.single_mut().compleation += 4.;
         commands.entity(entity).remove::<JustDied>();
+        
+        if player.single_mut().compleation >= 100. {
+            let mut dr = dialogue_runner.single_mut();
+            match dr.current_node() {
+                Some(_) => {
+                    dr.stop();
+                },
+                None => {
+                },
+            }
+            dr.start_node("End");
+            commands.entity(entity).insert(EndTimer::default());
+        }
+
+        if enemies.iter().len() == 0 {
+            let mut dr = dialogue_runner.single_mut();
+            match dr.current_node() {
+                Some(_) => {
+                    dr.stop();
+                },
+                None => {
+                },
+            }
+            dr.start_node("Reset");
+        }
     }
 }
+
+fn end(
+    end: Query<&EndTimer>,
+    mut exit: EventWriter<AppExit>
+) {
+    for e in end.iter() {
+        if e.0.just_finished() {
+            exit.send(AppExit);
+            return;
+        }
+    }
+}
+
+pub fn reload(
+    mut commands: Commands,
+    mut manager: ResMut<LdtkLevelManager>,
+    enemies: Query<Entity, (With<Enemy>, Without<Dead>)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    if enemies.iter().len() == 0 {
+        if input.just_released(KeyCode::KeyR) {
+            manager.unload_all(&mut commands);
+            manager.load(&mut commands, "Start".to_string(), None);
+        }
+    }
+}
+
 
 fn attack_collisions(
     mut collision_event_reader: EventReader<Collision>,
@@ -467,7 +524,6 @@ fn player_rotation(
 fn player_control(
     mut player_q: Query<&mut LinearVelocity, With<PlayerMover>>,
     mut anim_q: Query<&mut SpriteAnimator>,
-    mut next_state: ResMut<NextState<GameState>>,
     input: Res<ButtonInput<KeyCode>>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
@@ -496,10 +552,6 @@ fn player_control(
                 sprite_animator.restart_anim();
             }
         }
-    }
-
-    if input.just_pressed(KeyCode::Escape) {
-        next_state.set(GameState::Paused);
     }
 }
 
@@ -732,7 +784,6 @@ pub struct Player {
 
 #[derive(Component, LdtkEntity, Default, Reflect)]
 #[spawn_sprite]
-#[global_entity]
 #[callback(enemy_spawn)]
 pub struct Enemy {
     pub inventory: ItemTypeVec,
@@ -799,6 +850,22 @@ impl HitTimer {
 }
 
 impl Default for HitTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+    
+}
+
+#[derive(Component)]
+struct EndTimer(Timer);
+
+impl EndTimer {
+    pub fn new() -> Self {
+        Self(Timer::from_seconds(10.0, TimerMode::Once))
+    }
+}
+
+impl Default for EndTimer {
     fn default() -> Self {
         Self::new()
     }

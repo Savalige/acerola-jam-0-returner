@@ -2,15 +2,6 @@ use bevy::prelude::*;
 use bevy_entitiles_derive::{LdtkEntity, LdtkEntityTag, LdtkEnum};
 
 
-#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum GameState {
-    #[default]
-    LoadingScreen,
-    MainMenu,
-    InGame,
-    Paused,
-}
-
 #[derive(Component)]
 pub struct PlayerMover;
 
